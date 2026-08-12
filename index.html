@@ -1,0 +1,314 @@
+﻿<!DOCTYPE html>
+<html lang="fa">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>انبار سیگنالست حرفه‌ای</title>
+
+<link rel="manifest" href="manifest.json">
+<script>
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+}
+</script>
+
+<style>
+body { font-family:sans-serif; background:#1e1e1e; color:#fff; margin:0; padding:20px; }
+.container { max-width:480px; margin:auto; }
+button { width:100%; padding:12px; margin:8px 0; font-size:16px; border:none; border-radius:10px; background:#007bff; color:white; }
+.card { background:#2b2b2b; padding:15px; border-radius:10px; margin:10px 0; }
+input, textarea { width:100%; padding:10px; margin:8px 0; border-radius:8px; border:none; font-size:15px; }
+img { width:80px; height:80px; object-fit:cover; border-radius:8px; margin:4px; }
+
+.used {
+    background:#8a4f00 !important;
+    border:2px solid #ffcc66;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<h2 style="text-align:center;">انبار سیگنالست حرفه‌ای</h2>
+
+<div class="card">
+<button onclick="showAdd()">➕ ثبت قطعه</button>
+<button onclick="showList()">📦 لیست موجودی</button>
+<button onclick="showUsed()">🟧 لیست استفاده‌شده</button>
+<button onclick="showSearch()">🔎 جستجو</button>
+</div>
+
+<div id="page"></div>
+
+</div>
+
+<script>
+// دیتابیس
+function getDB(){ return JSON.parse(localStorage.getItem("inventory_pro") || "[]"); }
+function saveDB(d){ localStorage.setItem("inventory_pro", JSON.stringify(d)); }
+
+function getUsed(){ return JSON.parse(localStorage.getItem("used_pro") || "[]"); }
+function saveUsed(d){ localStorage.setItem("used_pro", JSON.stringify(d)); }
+
+// صفحه ثبت قطعه
+function showAdd(){
+document.getElementById("page").innerHTML = `
+<div class="card">
+<h3>ثبت قطعه جدید</h3>
+
+<label>نام قطعه</label>
+<input id="name" placeholder="نام قطعه">
+
+<label>مدل</label>
+<input id="model" placeholder="مدل">
+
+<label>تعداد</label>
+<input id="count" type="number" placeholder="تعداد">
+
+<label>محل نگهداری</label>
+<input id="place" placeholder="محل نگهداری">
+
+<label>توضیحات</label>
+<textarea id="desc" placeholder="توضیحات"></textarea>
+
+<label>تاریخ ثبت</label>
+<input id="date" value="${new Date().toLocaleString('fa-IR')}" readonly>
+
+<h4>عکس‌های محصول</h4>
+<input type="file" id="photos" accept="image/*" multiple>
+
+<button onclick="addItem()">ذخیره قطعه</button>
+</div>`;
+}
+
+// ذخیره قطعه با عکس‌ها
+function addItem(){
+let files = photos.files;
+let images = [];
+
+if(files.length > 0){
+    let loaded = 0;
+    for(let i=0; i<files.length; i++){
+        let reader = new FileReader();
+        reader.onload = function(e){
+            images.push(e.target.result);
+            loaded++;
+            if(loaded === files.length){
+                saveProduct(images);
+            }
+        };
+        reader.readAsDataURL(files[i]);
+    }
+} else {
+    saveProduct(images);
+}
+}
+
+function saveProduct(images){
+let item = {
+    id: Date.now(),
+    name: name.value,
+    model: model.value,
+    count: count.value,
+    desc: desc.value,
+    place: place.value,
+    date: date.value,
+    photos: images
+};
+
+let db = getDB();
+db.unshift(item);
+saveDB(db);
+
+alert("قطعه ذخیره شد.");
+showList();
+}
+
+// لیست موجودی
+function showList(){
+let db = getDB();
+let html = "<h3>لیست موجودی</h3>";
+
+if(db.length === 0){
+html += "<div class='card'>هیچ قطعه‌ای ثبت نشده.</div>";
+} else {
+db.forEach(x=>{
+html += `
+<div class="card">
+<b>${x.name}</b><br>
+مدل: ${x.model}<br>
+تعداد: ${x.count}<br>
+محل: ${x.place}<br>
+تاریخ ثبت: ${x.date}<br>
+توضیحات: ${x.desc}<br>
+<div>${x.photos.map(p=>`<img src="${p}">`).join("")}</div>
+<button onclick="useItem(${x.id})">استفاده شد</button>
+<button onclick="editItem(${x.id})">ویرایش</button>
+<button onclick="deleteItem(${x.id})">حذف</button>
+</div>`;
+});
+}
+
+document.getElementById("page").innerHTML = html;
+}
+
+// انتقال به لیست استفاده‌شده
+function useItem(id){
+let db = getDB();
+let used = getUsed();
+
+let item = db.find(x=>x.id === id);
+if(!item){ return; }
+
+let reason = prompt("توضیحات استفاده را وارد کن:");
+item.usedReason = reason || "بدون توضیح";
+item.usedDate = new Date().toLocaleString("fa-IR");
+
+used.unshift(item);
+saveUsed(used);
+
+db = db.filter(x=>x.id !== id);
+saveDB(db);
+
+alert("قطعه به لیست استفاده‌شده منتقل شد.");
+showList();
+}
+
+// لیست استفاده‌شده
+function showUsed(){
+let used = getUsed();
+let html = "<h3>لیست استفاده‌شده</h3>";
+
+if(used.length === 0){
+html += "<div class='card'>هیچ موردی استفاده نشده.</div>";
+} else {
+used.forEach(x=>{
+html += `
+<div class="card used">
+<b>${x.name}</b><br>
+مدل: ${x.model}<br>
+تاریخ استفاده: ${x.usedDate}<br>
+علت استفاده: ${x.usedReason}<br>
+<div>${x.photos.map(p=>`<img src="${p}">`).join("")}</div>
+
+<button onclick="restoreItem(${x.id})">برگرداندن به موجودی</button>
+<button onclick="editUsed(${x.id})">ویرایش</button>
+
+</div>`;
+});
+}
+
+document.getElementById("page").innerHTML = html;
+}
+
+// برگرداندن قطعه به موجودی
+function restoreItem(id){
+let used = getUsed();
+let db = getDB();
+
+let item = used.find(x=>x.id === id);
+if(!item){ return; }
+
+delete item.usedReason;
+delete item.usedDate;
+
+db.unshift(item);
+saveDB(db);
+
+used = used.filter(x=>x.id !== id);
+saveUsed(used);
+
+alert("قطعه به موجودی برگشت.");
+showList();
+}
+
+// ویرایش قطعه استفاده‌شده
+function editUsed(id){
+let used = getUsed();
+let item = used.find(x=>x.id === id);
+
+document.getElementById("page").innerHTML = `
+<div class="card">
+<h3>ویرایش قطعه استفاده‌شده</h3>
+
+<label>نام</label>
+<input id="ename" value="${item.name}">
+<label>مدل</label>
+<input id="emodel" value="${item.model}">
+<label>توضیحات استفاده</label>
+<textarea id="ereason">${item.usedReason}</textarea>
+
+<button onclick="saveEditUsed(${id})">ذخیره</button>
+<button onclick="showUsed()">بازگشت</button>
+</div>`;
+}
+
+function saveEditUsed(id){
+let used = getUsed();
+let idx = used.findIndex(x=>x.id === id);
+
+used[idx].name = ename.value;
+used[idx].model = emodel.value;
+used[idx].usedReason = ereason.value;
+
+saveUsed(used);
+alert("ویرایش شد.");
+showUsed();
+}
+
+// حذف
+function deleteItem(id){
+let db = getDB();
+db = db.filter(x=>x.id !== id);
+saveDB(db);
+alert("حذف شد.");
+showList();
+}
+
+// جستجو
+function showSearch(){
+document.getElementById("page").innerHTML = `
+<div class="card">
+<h3>جستجوی قطعه</h3>
+<input id="q" placeholder="نام، مدل یا محل">
+<button onclick="doSearch()">جستجو</button>
+<div id="searchResult"></div>
+</div>`;
+}
+
+function doSearch(){
+let db = getDB();
+let text = q.value.trim();
+if(text === ""){ alert("متن جستجو را وارد کن"); return; }
+
+let res = db.filter(x=>
+    (x.name && x.name.includes(text)) ||
+    (x.model && x.model.includes(text)) ||
+    (x.place && x.place.includes(text))
+);
+
+let html = "";
+if(res.length === 0){
+html = "<div class='card'>چیزی پیدا نشد.</div>";
+} else {
+res.forEach(x=>{
+html += `
+<div class="card">
+<b>${x.name}</b><br>
+مدل: ${x.model}<br>
+تعداد: ${x.count}<br>
+محل: ${x.place}<br>
+تاریخ ثبت: ${x.date}<br>
+<div>${x.photos.map(p=>`<img src="${p}">`).join("")}</div>
+</div>`;
+});
+}
+document.getElementById("searchResult").innerHTML = html;
+}
+
+showAdd();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,9 @@
+﻿{
+  "name": "انبار سیگنالست",
+  "short_name": "انبار",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#1e1e1e",
+  "theme_color": "#007bff",
+  "icons": []
+}
